@@ -4,24 +4,38 @@
 
 {% block content %}
   <div class="container">
-    <h2>Settings</h2>
+    <h2 class="page-title" style="color: #4CAF50;">Account Settings</h2>
 
-    <h3>Account Details</h3>
+    <form method="POST" action="/update_account">
+      <label>Username</label><br>
+      <input type="text" name="username" value="{{ user.username }}"><br><br>
+
+      <label>Email</label><br>
+      <input type="email" name="email" value="{{ user.email }}"><br><br>
+
+      <button type="submit">Save Changes</button>
+    </form>
+
+    <hr>
+
+    <h3 style="color: #FF5722;">Blocked Users</h3>
     <ul>
-      <li>Username: your_username</li>
-      <li>Email: your_email@example.com</li>
+      {% for user in blocked_users %}
+        <li>{{ user }} 
+          <form method="POST" action="/unblock" style="display:inline;">
+            <input type="hidden" name="username" value="{{ user }}">
+            <button type="submit">Unblock</button>
+          </form>
+        </li>
+      {% endfor %}
     </ul>
 
-    <h3>Blocked Users</h3>
-    <ul>
-      <li>blocked_user_1</li>
-      <li>blocked_user_2</li>
-    </ul>
+    <hr>
 
-    <h3>Privacy Settings</h3>
+    <h3 style="color: #3F51B5;">Privacy</h3>
     <ul>
       <li>Profile Visibility: Public</li>
-      <li>Show Last Seen: No</li>
+      <li>Last Seen: Hidden</li>
     </ul>
   </div>
 {% endblock %}
