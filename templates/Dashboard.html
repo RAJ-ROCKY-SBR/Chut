@@ -1,3 +1,21 @@
 {% extends 'base.html' %}
+
 {% block title %}Dashboard{% endblock %}
-{% block content %}<h2>User Dashboard</h2>{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Welcome to your Dashboard</h1>
+    <p>This is where you can see your recent activity and manage your account.</p>
+
+    <div class="card">
+      <h3>Your Activity</h3>
+      <ul>
+        <li>Last login: Just now</li>
+        <li>Messages sent: 12</li>
+        <li>Blocked users: 1</li>
+      </ul>
+    </div>
+
+    <a href="/settings">Go to Settings</a>
+  </div>
+{% endblock %}
