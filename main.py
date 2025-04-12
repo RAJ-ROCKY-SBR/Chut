@@ -1,21 +1,23 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import os
+from flask import jsonify
+from flask_session import Session
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = 'supersecretkey'
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
 # Dummy user data
 users = {
     'john': {
-        'username': 'john',
-        'email': 'john@example.com',
         'password': '1234',
-        'blocked': ['alice', 'bob']
+        'email': 'john@example.com',
+        'blocked': ['spam_user']
     }
 }
 
 @app.route('/')
-def home():
+def index():
     if 'username' in session:
         return redirect(url_for('settings'))
     return redirect(url_for('login'))
@@ -23,45 +25,48 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = users.get(username)
-        if user and user['password'] == password:
-            session['username'] = username
+        uname = request.form['username']
+        pwd = request.form['password']
+        if uname in users and users[uname]['password'] == pwd:
+            session['username'] = uname
             return redirect(url_for('settings'))
-        return 'Invalid credentials'
+        else:
+            return "Invalid credentials"
     return render_template('login.html')
 
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
-
-@app.route('/settings')
+@app.route('/settings', methods=['GET'])
 def settings():
     if 'username' not in session:
         return redirect(url_for('login'))
 
-    current_user = users.get(session['username'])
-    blocked_users = current_user.get('blocked', []) if current_user else []
+    username = session['username']
+    user = users.get(username)
 
-    return render_template('settings.html', user=current_user, blocked_users=blocked_users)
+    if not user:
+        return "User not found", 404
+
+    return render_template(
+        'settings.html',
+        user=user,
+        blocked_users=user.get('blocked', [])
+    )
 
 @app.route('/update_account', methods=['POST'])
 def update_account():
     if 'username' not in session:
         return redirect(url_for('login'))
 
-    old_username = session['username']
+    username = session['username']
     new_username = request.form['username']
     new_email = request.form['email']
 
-    if old_username in users:
-        users[old_username]['username'] = new_username
-        users[old_username]['email'] = new_email
-        if new_username != old_username:
-            users[new_username] = users.pop(old_username)
-            session['username'] = new_username
+    # Update user details
+    users[username]['email'] = new_email
+
+    # Update username key if changed
+    if new_username != username:
+        users[new_username] = users.pop(username)
+        session['username'] = new_username
 
     return redirect(url_for('settings'))
 
@@ -72,10 +77,16 @@ def unblock():
 
     username = session['username']
     to_unblock = request.form['username']
+
     if to_unblock in users[username]['blocked']:
         users[username]['blocked'].remove(to_unblock)
 
     return redirect(url_for('settings'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)
