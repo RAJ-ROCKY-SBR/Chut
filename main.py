@@ -2,78 +2,80 @@ from flask import Flask, render_template, request, redirect, url_for, session
 import os
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "your_secret_key")
+app.secret_key = os.urandom(24)
 
-# Dummy users and block data
+# Dummy user data
 users = {
-    "admin": {"password": "admin", "blocked": []}
+    'john': {
+        'username': 'john',
+        'email': 'john@example.com',
+        'password': '1234',
+        'blocked': ['alice', 'bob']
+    }
 }
 
 @app.route('/')
 def home():
     if 'username' in session:
-        return render_template('home.html', username=session['username'])
+        return redirect(url_for('settings'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        uname = request.form['username']
-        pwd = request.form['password']
-        if uname in users and users[uname]['password'] == pwd:
-            session['username'] = uname
-            return redirect(url_for('home'))
+        username = request.form['username']
+        password = request.form['password']
+        user = users.get(username)
+        if user and user['password'] == password:
+            session['username'] = username
+            return redirect(url_for('settings'))
+        return 'Invalid credentials'
     return render_template('login.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        uname = request.form['username']
-        pwd = request.form['password']
-        if uname not in users:
-            users[uname] = {"password": pwd, "blocked": []}
-            session['username'] = uname
-            return redirect(url_for('home'))
-    return render_template('register.html')
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
-@app.route('/dashboard')
-def dashboard():
-    if 'username' in session:
-        return render_template('dashboard.html', username=session['username'])
-    return redirect(url_for('login'))
-
 @app.route('/settings')
 def settings():
-    if 'username' in session:
-        return render_template('settings.html', username=session['username'], blocked=users[session['username']]['blocked'])
-    return redirect(url_for('login'))
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
-@app.route('/block/<user>')
-def block_user(user):
-    if 'username' in session and user in users:
-        if user not in users[session['username']]['blocked']:
-            users[session['username']]['blocked'].append(user)
+    current_user = users.get(session['username'])
+    blocked_users = current_user.get('blocked', []) if current_user else []
+
+    return render_template('settings.html', user=current_user, blocked_users=blocked_users)
+
+@app.route('/update_account', methods=['POST'])
+def update_account():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    old_username = session['username']
+    new_username = request.form['username']
+    new_email = request.form['email']
+
+    if old_username in users:
+        users[old_username]['username'] = new_username
+        users[old_username]['email'] = new_email
+        if new_username != old_username:
+            users[new_username] = users.pop(old_username)
+            session['username'] = new_username
+
     return redirect(url_for('settings'))
 
-@app.route('/unblock/<user>')
-def unblock_user(user):
-    if 'username' in session and user in users[session['username']]['blocked']:
-        users[session['username']]['blocked'].remove(user)
-    return redirect(url_for('settings'))
+@app.route('/unblock', methods=['POST'])
+def unblock():
+    if 'username' not in session:
+        return redirect(url_for('login'))
 
-@app.route('/search')
-def search():
-    if 'username' in session:
-        query = request.args.get('q', '')
-        matched_users = [u for u in users if query.lower() in u.lower() and u != session['username']]
-        return render_template('search.html', results=matched_users, query=query)
-    return redirect(url_for('login'))
+    username = session['username']
+    to_unblock = request.form['username']
+    if to_unblock in users[username]['blocked']:
+        users[username]['blocked'].remove(to_unblock)
+
+    return redirect(url_for('settings'))
 
 if __name__ == '__main__':
-    # For local dev
-    app.run(host='0.0.0.0', port=5000)
+    app.run(debug=True)
